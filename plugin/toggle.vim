@@ -20,22 +20,6 @@ function! s:Toggle_insertChar(string, pos, char)
   return strpart(a:string, 0, a:pos) . a:char . strpart(a:string, a:pos)
 endfunction
 
-" Return the word under the cursor, uses spaces to delimitate
-" Modified GetCurrentWord() from http://www.vim.org/scripts/script.php?script_id=143
-function! s:Toggle_getCurrentWord(colNo, lineNo)
-  let l = getline(a:lineNo)
-  let l1 = strpart(l, 0, a:colNo)
-  let l1 = matchstr(l1, '\S*$')
-
-  if strlen(l1) == 0
-    return l1
-  else
-    let l2 = strpart(l, a:colNo, strlen(l) - a:colNo + 1)
-    let l2 = strpart(l2, 0, match(l2, '$\|\s'))
-    return l1 . l2
-  endif
-endfunction
-
 " }}}1
 
 " Toggle function {{{1
@@ -47,7 +31,7 @@ function! s:Toggle()
   let s:charUnderCursor = strpart(s:cline, s:columnNo - 1, 1)
   let s:nextChar = strpart(s:cline, s:columnNo, 1)
   let s:prevChar = strpart(s:cline, s:columnNo - 2, 1)
-  let s:wordUnderCursor = s:Toggle_getCurrentWord(s:columnNo, s:lineNo)
+  let s:wordUnderCursor = expand('<cword>')
   let s:wordUnderCursor_tmp = ''
 
   " 1. Arithmetic and relational operators {{{2
