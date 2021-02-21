@@ -172,25 +172,27 @@ function! s:Toggle()
   endfunction
   " }}}2
 
-  if ! s:toggleDone
-    call s:DoMaths()
-  endif
+  " Iterate function {{{2
+  function! Iterate()
+    let funcList = [
+          \ function("s:DoMaths"),
+          \ function("s:DoNumbers"),
+          \ function("s:DoOperators"),
+          \ function("s:DoStrings"),
+          \ function("s:NotFound"),
+          \ ]
 
-  if ! s:toggleDone
-    call s:DoNumbers()
-  endif
+    for Func in funcList
+      if s:toggleDone
+        return
+      endif
 
-  if ! s:toggleDone
-    call s:DoOperators()
-  endif
+      call Func()
+    endfor
+  endfunction
+  " }}}2
 
-  if ! s:toggleDone
-    call s:DoStrings()
-  endif
-
-  if ! s:toggleDone
-    call s:NotFound()
-  endif
+  call Iterate()
 
   " Restore saved values
   call cursor(s:lineNo, s:columnNo)
