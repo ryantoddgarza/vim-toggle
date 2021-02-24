@@ -35,11 +35,7 @@ function! s:Toggle()
   let s:wordUnderCursor_tmp = ''
 
   " 1. Arithmetic and relational operators {{{2
-  function! s:HandleMath(x, y)
-    if s:toggleDone
-      return
-    endif
-
+  function! HandleMath(x, y)
     if s:charUnderCursor == a:x
       execute "normal r" . a:y
       let s:toggleDone = 1
@@ -48,24 +44,15 @@ function! s:Toggle()
       let s:toggleDone = 1
     endif
   endfunction
-
-  function! s:DoMaths()
-    call s:HandleMath("+", "-")
-    call s:HandleMath("<", ">")
-  endfunction
   " }}}2
 
   " 2. Numbers {{{2
-  function! s:HandleNumber(arg)
-    if s:toggleDone
-      return
-    endif
-
+  function! SetLineAndDone(arg)
     call setline(s:lineNo, a:arg)
     let s:toggleDone = 1
   endfunction
 
-  function! s:DoNumbers()
+  function! HandleNumbers()
     if s:charUnderCursor =~ "\\d" " is a digit (number)
       let s:col_tmp = s:columnNo - 1
       let s:foundSpace = 0
@@ -75,9 +62,9 @@ function! s:Toggle()
         let s:cuc = strpart(s:cline, s:col_tmp, 1)
 
         if s:cuc == "+"
-          call s:HandleNumber(s:Toggle_changeChar(s:cline, s:col_tmp, "-"))
+          call SetLineAndDone(s:Toggle_changeChar(s:cline, s:col_tmp, "-"))
         elseif s:cuc == "-"
-          call s:HandleNumber(s:Toggle_changeChar(s:cline, s:col_tmp, "+"))
+          call SetLineAndDone(s:Toggle_changeChar(s:cline, s:col_tmp, "+"))
         elseif s:cuc == " "
           let s:foundSpace = 1
           " Set spacePos so sign is directly before number if there are several spaces
@@ -86,10 +73,10 @@ function! s:Toggle()
           endif
         elseif s:cuc !~ "\\s" && s:foundSpace == 1
           " If any non-space character precedes `foundSpace`, insert `-` and keep a space
-          call s:HandleNumber(s:Toggle_changeChar(s:cline, s:spacePos, " -"))
+          call SetLineAndDone(s:Toggle_changeChar(s:cline, s:spacePos, " -"))
         elseif s:cuc !~ "\\d" && s:cuc !~ "\\s"
           " If preceded by any non-digit or non-space character, insert `-`
-          call s:HandleNumber(s:Toggle_insertChar(s:cline, s:col_tmp + 1, "-"))
+          call SetLineAndDone(s:Toggle_insertChar(s:cline, s:col_tmp + 1, "-"))
         endif
 
         let s:col_tmp = s:col_tmp - 1
@@ -97,18 +84,14 @@ function! s:Toggle()
 
       if ! s:toggleDone
         " No sign found, insert `-` at beginning of line
-        call s:HandleNumber("-" . s:cline)
+        call SetLineAndDone("-" . s:cline)
       endif
     endif
   endfunction
   " }}}2
 
   " 3. Logical and binary operators {{{2
-  function! s:HandleOperator(x, y)
-    if s:toggleDone
-      return
-    endif
-
+  function! HandleOperator(x, y)
     if s:charUnderCursor == a:x
       if s:prevChar == a:x
         execute "normal r" . a:y . "hr" . a:y
@@ -120,52 +103,38 @@ function! s:Toggle()
       let s:toggleDone = 1
     endif
   endfunction
-
-  function! s:DoOperators()
-    call s:HandleOperator("|", "&")
-    call s:HandleOperator("&", "|")
-  endfunction
   " }}}2
 
   " 4. Strings {{{2
-  function! s:HandleString(x, y)
-    if s:toggleDone
-      return
+  function! PreserveCase()
+    " Preserve case (provided by Jan Christoph Ebersbach)
+    if strpart(s:wordUnderCursor, 0) =~ '^\u*$'
+      let s:wordUnderCursor = toupper(s:wordUnderCursor_tmp)
+    elseif strpart(s:wordUnderCursor, 0, 1) =~ '^\u$'
+      let s:wordUnderCursor = toupper(strpart(s:wordUnderCursor_tmp, 0, 1)) . strpart(s:wordUnderCursor_tmp, 1)
+    else
+      let s:wordUnderCursor = s:wordUnderCursor_tmp
     endif
 
+    " Set the new line
+    execute "normal ciw" . s:wordUnderCursor
+  endfunction
+
+  function! HandleString(x, y)
     if s:wordUnderCursor ==? a:x
       let s:wordUnderCursor_tmp = a:y
+      call PreserveCase()
       let s:toggleDone = 1
     elseif s:wordUnderCursor ==? a:y
       let s:wordUnderCursor_tmp = a:x
+      call PreserveCase()
       let s:toggleDone = 1
-    endif
-  endfunction
-
-  function! s:DoStrings()
-    call s:HandleString("true", "false")
-    call s:HandleString("on", "off")
-    call s:HandleString("yes", "no")
-    call s:HandleString("define", "undef")
-
-    if s:toggleDone
-      " Preserve case (provided by Jan Christoph Ebersbach)
-      if strpart(s:wordUnderCursor, 0) =~ '^\u*$'
-        let s:wordUnderCursor = toupper(s:wordUnderCursor_tmp)
-      elseif strpart(s:wordUnderCursor, 0, 1) =~ '^\u$'
-        let s:wordUnderCursor = toupper(strpart(s:wordUnderCursor_tmp, 0, 1)) . strpart(s:wordUnderCursor_tmp, 1)
-      else
-        let s:wordUnderCursor = s:wordUnderCursor_tmp
-      endif
-
-      " Set the new line
-      execute "normal ciw" . s:wordUnderCursor
     endif
   endfunction
   " }}}2
 
   " 5. Not found {{{2
-  function! s:NotFound()
+  function! NotFound()
     echohl WarningMsg
     echo "Can't toggle word under cursor, word is not in list."
     echohl None
@@ -173,26 +142,31 @@ function! s:Toggle()
   " }}}2
 
   " Iterate function {{{2
-  function! Iterate()
-    let funcList = [
-          \ function("s:DoMaths"),
-          \ function("s:DoNumbers"),
-          \ function("s:DoOperators"),
-          \ function("s:DoStrings"),
-          \ function("s:NotFound"),
-          \ ]
+  let fnList = [
+        \ function("HandleMath", ["+", "-"]),
+        \ function("HandleMath", ["<", ">"]),
+        \ function("HandleNumbers"),
+        \ function("HandleOperator", ["|", "&"]),
+        \ function("HandleOperator", ["&", "|"]),
+        \ function("HandleString", ["true", "false"]),
+        \ function("HandleString", ["on", "off"]),
+        \ function("HandleString", ["yes", "no"]),
+        \ function("HandleString", ["define", "undef"]),
+        \ function("NotFound"),
+        \ ]
 
-    for Func in funcList
+  function! FnListIter(list) abort
+    for Fn in a:list
       if s:toggleDone
         return
       endif
 
-      call Func()
+      call Fn()
     endfor
   endfunction
   " }}}2
 
-  call Iterate()
+  call FnListIter(fnList)
 
   " Restore saved values
   call cursor(s:lineNo, s:columnNo)
