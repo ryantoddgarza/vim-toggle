@@ -20,6 +20,23 @@ function! s:Toggle_insertChar(string, pos, char)
   return strpart(a:string, 0, a:pos) . a:char . strpart(a:string, a:pos)
 endfunction
 
+function! s:Toggle_changeWord(initWord, newWord)
+  let fmtdWord = s:Toggle_transferCase(a:initWord, a:newWord)
+  execute "normal ciw" . fmtdWord
+endfunction
+
+function! s:Toggle_transferCase(origin, dest)
+  let string = a:dest
+
+  if strpart(a:origin, 0) =~ '^\u*$'
+    let string = toupper(a:dest)
+  elseif strpart(a:origin, 0, 1) =~ '^\u$'
+    let string = toupper(strpart(a:dest, 0, 1)) . strpart(a:dest, 1)
+  endif
+
+  return string
+endfunction
+
 " }}}1
 
 " Toggle function {{{1
@@ -32,7 +49,6 @@ function! s:Toggle()
   let s:nextChar = strpart(s:cline, s:columnNo, 1)
   let s:prevChar = strpart(s:cline, s:columnNo - 2, 1)
   let s:wordUnderCursor = expand('<cword>')
-  let s:wordUnderCursor_tmp = ''
 
   " 1. Arithmetic, inc/dec, relational, logical, and bitwise operators {{{2
   function! HandleOperator(x, y)
@@ -100,28 +116,12 @@ function! s:Toggle()
   " }}}2
 
   " 3. Strings {{{2
-  function! PreserveCase()
-    " Preserve case (provided by Jan Christoph Ebersbach)
-    if strpart(s:wordUnderCursor, 0) =~ '^\u*$'
-      let s:wordUnderCursor = toupper(s:wordUnderCursor_tmp)
-    elseif strpart(s:wordUnderCursor, 0, 1) =~ '^\u$'
-      let s:wordUnderCursor = toupper(strpart(s:wordUnderCursor_tmp, 0, 1)) . strpart(s:wordUnderCursor_tmp, 1)
-    else
-      let s:wordUnderCursor = s:wordUnderCursor_tmp
-    endif
-
-    " Set the new line
-    execute "normal ciw" . s:wordUnderCursor
-  endfunction
-
   function! HandleString(x, y)
     if s:wordUnderCursor ==? a:x
-      let s:wordUnderCursor_tmp = a:y
-      call PreserveCase()
+      call s:Toggle_changeWord(s:wordUnderCursor, a:y)
       let s:toggleDone = 1
     elseif s:wordUnderCursor ==? a:y
-      let s:wordUnderCursor_tmp = a:x
-      call PreserveCase()
+      call s:Toggle_changeWord(s:wordUnderCursor, a:x)
       let s:toggleDone = 1
     endif
   endfunction
