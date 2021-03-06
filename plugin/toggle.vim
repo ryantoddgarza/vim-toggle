@@ -34,13 +34,22 @@ function! s:Toggle()
   let s:wordUnderCursor = expand('<cword>')
   let s:wordUnderCursor_tmp = ''
 
-  " 1. Arithmetic and relational operators {{{2
-  function! HandleMath(x, y)
-    if s:charUnderCursor == a:x
-      execute "normal r" . a:y
-      let s:toggleDone = 1
-    elseif s:charUnderCursor == a:y
-      execute "normal r" . a:x
+  " 1. Arithmetic, inc/dec, relational, logical, and bitwise operators {{{2
+  function! HandleOperator(x, y)
+    if s:charUnderCursor == a:x || s:charUnderCursor == a:y
+      if s:prevChar == a:x
+        execute "normal r" . a:y . "hr" . a:y
+      elseif s:nextChar == a:x
+        execute "normal r" . a:y . "lr" . a:y
+      elseif s:prevChar == a:y
+        execute "normal r" . a:x . "hr" . a:x
+      elseif s:nextChar == a:y
+        execute "normal r" . a:x . "lr" . a:x
+      elseif s:charUnderCursor == a:x
+        execute "normal r" . a:y
+      elseif s:charUnderCursor == a:y
+        execute "normal r" . a:x
+      endif
       let s:toggleDone = 1
     endif
   endfunction
@@ -90,22 +99,7 @@ function! s:Toggle()
   endfunction
   " }}}2
 
-  " 3. Logical and binary operators {{{2
-  function! HandleOperator(x, y)
-    if s:charUnderCursor == a:x
-      if s:prevChar == a:x
-        execute "normal r" . a:y . "hr" . a:y
-      elseif s:nextChar == a:x
-        execute "normal r" . a:y . "lr" . a:y
-      else
-        execute "normal r" . a:y
-      endif
-      let s:toggleDone = 1
-    endif
-  endfunction
-  " }}}2
-
-  " 4. Strings {{{2
+  " 3. Strings {{{2
   function! PreserveCase()
     " Preserve case (provided by Jan Christoph Ebersbach)
     if strpart(s:wordUnderCursor, 0) =~ '^\u*$'
@@ -133,7 +127,7 @@ function! s:Toggle()
   endfunction
   " }}}2
 
-  " 5. Not found {{{2
+  " 4. Not found {{{2
   function! NotFound()
     echohl WarningMsg
     echo "Can't toggle word under cursor, word is not in list."
@@ -143,11 +137,10 @@ function! s:Toggle()
 
   " Iterate function {{{2
   let fnList = [
-        \ function("HandleMath", ["+", "-"]),
-        \ function("HandleMath", ["<", ">"]),
-        \ function("HandleNumbers"),
-        \ function("HandleOperator", ["|", "&"]),
+        \ function("HandleOperator", ["+", "-"]),
+        \ function("HandleOperator", ["<", ">"]),
         \ function("HandleOperator", ["&", "|"]),
+        \ function("HandleNumbers"),
         \ function("HandleString", ["true", "false"]),
         \ function("HandleString", ["on", "off"]),
         \ function("HandleString", ["yes", "no"]),
